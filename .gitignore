@@ -5,6 +5,7 @@
 *.mat
 *.csv
 *.png
+*.npy
 
 **/solution.py
 **/.ipynb_checkpoints/
