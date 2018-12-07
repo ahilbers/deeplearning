@@ -1,0 +1,27 @@
+\message{ !name(Report.tex)}\documentclass[]{article}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows}
+\graphicspath{ {../figs/} }
+
+
+% Title Page
+\title{Industrial revolution 2.0: using variational autoencoders to produce images of clothing}
+\author{Adriaan Hilbers}
+
+
+\begin{document}
+
+\message{ !name(Report.tex) !offset(68) }
+\begin{align}
+  \label{eq:loss}
+  \mathcal{L}(\bm{\theta}, \bm{\phi}, \bm{x}^{(i)}) &= \frac{1}{2} \sum_{j=1}^d \left( 1 + \log{((\sigma_j^{(i)})^2)} - (\mu_j^{(i)})^2 - (\sigma_j^{(i)})^2 \right) \\
+  &+ \frac{1}{L} \sum_{l=1}^L \log{p_{\bm{\theta}}(\bm{x}^{(i)}|\bm{z}^{(i, l)})}
+\end{align}
+\message{ !name(Report.tex) !offset(162) }
+
+\end{document}          

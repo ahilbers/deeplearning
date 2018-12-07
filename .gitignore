@@ -6,6 +6,11 @@
 *.csv
 *.png
 *.npy
+*.pdf
+*.aux
+*.log
+*.prv
+*.tex~
 
 **/solution.py
 **/.ipynb_checkpoints/
