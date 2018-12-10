@@ -32,11 +32,9 @@ This work was done as part of the \textit{Deep Learning} course at Imperial Coll
 \section{Introduction}
 \label{sec:introduction}
 
-The terms \textit{machine learning} and \textit{artificial intelligence} are pervasive in recent media reporting. Many tasks until recently considered difficult for computers(e.g. character recognition) are now routine and can be performed to high accuracy with relatively modest algorithmic and computational complexities [\textit{source}].
+In the last few decades, machine learning techniques have achieved considerable success in many taks previously viewed as difficult for a computer. \textit{Generative models} are one specific class of algorithms that seek to produce new objects (e.g. images or music) without the need of a human. Such models are typically \textit{trained} from ``real'' data such as older images or audio fragments to infer the structures. These structures can then be imitated to create new objects that are derivations of those trained on. Various generative frameworks exist, including generative adversarial neural networks, variational autoencoders and normalising flows \cite{notes}. 
 
-Generative models are one specific class of machine learning algorithms that seek to produce representations (e.g. images) of objects that do not actually exist. There are various model architectures that can be employed, including generative adversarial neural networks, variational autoencoders or normalising flows \cite{notes}. Many of these approaches work by first \textit{training} a model on some existing data (such as images of objects) and then changing parameters inside the model. If set up correctly, adjusting these parameters induces meaningful changes in the outputs. For example, in \cite{white}, the author sets up a model such that one of its parameters corresponds to the rotation of a human face in an image.
-
-In this report, we employ a \textit{variational autoencoder} to produce new images of clothing. The dataset and model architecture are introduced in sections XX and XX respectively.
+In this report, we employ a \textit{variational autoencoder} to produce new images of clothing. The dataset and model architecture are introduced in sections XX and XX respectively. Only a very brief discussion of the model architecture is provided, but the code used is publically available at \texttt{github.com/ahilbers} under \texttt{deeplearning/assignments/week\_6}. 
 
 
 
@@ -44,7 +42,7 @@ In this report, we employ a \textit{variational autoencoder} to produce new imag
 \section{Dataset: Fashion MNIST}
 \label{sec:dataset}
 
-To train our model we use the \textit{Fashion MNIST} dataset\footnote{see https://github.com/zalandoresearch/fashion-mnist}. This dataset contains 70,000 images of articles of clothing, each given one of ten possible labels: t-shirt/top, trousers, pullover, dress, coat, sandal, shirt, sneaker, bag or ankle boot. The data is split into 60,000 \textit{training} images and 10,000 \textit{testing} images. An overview of the images, by category, is shown in Figure \ref{fig:mnist_fashion}.
+To train our model we use the \textit{Fashion MNIST} dataset\footnote{see https://github.com/zalandoresearch/fashion-mnist}. It contains 70,000 images of articles of clothing, classified into one of 10 categories. The data is split into 60,000 \textit{training} images and 10,000 \textit{testing} images. An overview of the images, by category, is shown in Figure \ref{fig:mnist_fashion}.
 
 \begin{figure}
   \centering
@@ -62,7 +60,7 @@ To train our model we use the \textit{Fashion MNIST} dataset\footnote{see https:
   \label{fig:mnist_fashion}
 \end{figure}
 
-The \textit{Fashion MNIST} is designed to be a drop-in replacement for the traditional MNIST database of handwritten digits. They have the same image dimensions (28x28), with each image assigned a label between 0 and 9. However, the Fashion MNIST dataset is more complex, as differences between different categories (e.g. coat and pullover) is smaller than between different handwritten digits. Furthermore, differences \textit{within} categories (e.g. different sandals) can be much larger than for the handwritten digits.
+The dataset is designed to be a drop-in replacement for the traditional MNIST database of handwritten digits, with image dimensions and the number of possible labels identical. However, the \textit{Fashion MNIST} database is more challenging for machine learning algorithms, since the inter-category variations are larger and the intra-category variations smaller; the visual difference between a coat and pullover may be very small when compared to two different handwritten digits.
 
 
 
@@ -70,17 +68,20 @@ The \textit{Fashion MNIST} is designed to be a drop-in replacement for the tradi
 \section{Variational Autoencoder: setup}
 \label{sec:vae}
 
-This section introduces the setup of the model and how it is trained. For sake of brevity, only a concise overview is provided. The setup of the model is shown in Figure \ref{fig:neuralnet}. Overall, a feedforward run of the variational autoencoder works as follows, as inspired by \cite{notes, frans, altosaar, shafkat}: 
+This section provides a brief introduction into the model architecture and how training is performed. The variational autoencoder employed is inspired by the introductions to to the method given in \cite{notes, frans, altosaar, shafkat}.
+
+The variational autoencoder employed consists of two parts: an \textit{encoder} and a \textit{deocder}. It works as follows:
 \begin{itemize}
-\item The raw input is an image encoded as a length 784 vector with the pixel brightnesses. 
-\item This image is reshaped and fed through a convolutional neural network consisting of both convolutional and dense layers. This gives, for each image, two vectors: a mean$\mu$ and variance $\sigma$, each of dimension $n_z$. This phase is referred to as \textit{encoding}.
-\item A random vector $z$ (of dimension $n_z$ is sampled from a normal distribution with mean $\mu$ and (diagional) covariance matrix parametrised by the diagonal values $\sigma$. This allows an optimiser to train through $\mu$ and $\sigma$ in what is known as the \textit{reparametrisation trick} \cite{notes, frans}.
-\item $z$ is used as input in a deconvolutional neural network with a symmetric archicture as the encoder, returning a length 784 vector that can be interpreted as pixel values. This part of the neural network is known as the \textit{decoder}. 
+\item Represent an image by $\bm{x}^{(i)}$, the vector of its pixel brightnesses.
+\item Encode this image into a mean vector $\bm{\mu}^{(i)}$ and variance vector $\bm{\sigma}^{(i)}$ with dimension $n_z$.
+ \item Sample a vector $\bm{z}^{(i)}$ from $\mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)})$ where the covariance matrix is diagonal. In reality, a \textit{reparametrisation trick} (see e.g. \cite{notes}) is performed to ensure the model is trainable, but this does not change the results of a feedforward run through the autoencoder). The density of $\bm{z}^{(i)}$ given $\bm{x}^{(i)}$ is denoted by $q_{\phi}(\bm{y}^{(i)}|\bm{x}^{(i)})$, where $\phi$ represents all parameters in the encoder). 
+ \item Decode $\bm{z}^{(i)}$ back into image space using a decoder $p_{\sigma}(\bm{x}^{(i)}|\bm{z}^{(i)})$. 
 \end{itemize}
 
-The dimension of $n_z$ is typically much smaller than the original image. For a traditional autoencoder, the encoder maps straight to $z$ instead of $\mu$ and $\sigma$, and this part of the architecture is known as the \textit{bottleneck}. The goal of the autoencoder is to encode as much information as possible in a space of dimension $n_z$ by learning structures in the data. The goal of an autoencoder is to make the output image as ``close'' to the input image as possible with as low as possible value of $n_z$.
+For a traditional autoencoder, the loss function will involve only the difference between $p_{\sigma}(\bm{x}^{(i)}|\bm{z}^{(i)})$ and the input $\bm{x}^{(i)}$. For a variational encoder, we want to generate new images, so this is not sufficient. The method of generating new images is by sampling new vectors $\bm{z}$ from its latent space of dimension $n_z$. If this latent space has ``meaning'' in terms of properties of the images, we will generate images. Furthemore, we hope that coordinates in the latent space are ``meaningful'' in the sense that the $\bm{z}$ vector halfway between e.g. a shoe and a trousers is some pictorial intermediate of the two.
 
-For a variational autoencoder, this is no longer the only goal. We also want to generate new outputs that do not exist in the training (or testing) dataset. For this reason, the space in which $z$ lives ($\mathbb{R}^N$) is called the \textit{latent space}. Sampling values of $z$ from this latent space and running them through a (trained) decoder should give new images.
+
+
 
 For this to work, the distribution of encoded (noisy) $z$ values from the training dataset should be distributed in some meaningful way. We enforce this by adding a penalisation term to the loss function that measures the deviation of the distribution of $z$ values throughout the training dataset from a standard normal distribution $\mathcal{N}(0, 1)$. For this purpose, we use the Kullback-Leibler divergence $D_{KL}$.
 
@@ -134,6 +135,52 @@ The loss function is a follows:
 \end{figure}
 
 
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.7, trim=0 0 0 0, clip]{costs.pdf}
+  \caption{Value of loss function as model is trained.}
+  \label{fig:training_costs}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{0_epochs.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{1_epochs.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{2_epochs.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{3_epochs.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{4_epochs.png}
+  \caption{Autoencoder outputs for the first 10 images of the dataset after $n$ full runs through training dataset, from $n=0$ (top) to $n=4$ (bottom).}
+  \label{fig:training_images}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bag2sneaker.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{jumper2bag.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{trouser2jumper.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{tshirt2sneaker.png}
+  \caption{Interpolations in latent space between selected images.}
+  \label{fig:interpolations}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bag2bag_extrahandle.png}
+  \caption{Interpolations in latent space between a bag without and with a handle.}
+  \label{fig:interpolation_handle}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bags_default.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bags_extrahandle.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{shoes_default.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{shoes_extrahandle.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{sandals_default.png}
+  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{sandals_extrahandle.png}
+  \caption{``Adding'' a handle to various images in latent space. The unmodified pictures are shown above those with an ``added'' handle.}
+  \label{fig:extrahandles}
+\end{figure}
 
 
 
