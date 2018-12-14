@@ -6,6 +6,8 @@
 \usepackage{bm}
 \usepackage{tikz}
 \usetikzlibrary{shapes, arrows}
+\usetikzlibrary{calc,arrows,decorations.pathmorphing,backgrounds,fit,positioning,shapes.symbols,chains}
+\usetikzlibrary{decorations.pathreplacing}
 \graphicspath{ {../figs/} }
 
 
@@ -23,8 +25,7 @@
 \section*{Abstract}
 \label{sec:abstrct}
 
-This document describes the use of variational autoencoders as generative models for images of articles of clothing. XXXXX.
-This work was done as part of the \textit{Deep Learning} course at Imperial College London in Autumn 2018.
+This document describes the use of variational autoencoders as generative models for images of articles of clothing, using the \textit{Fashion MNIST} dataset. This work was done as part of the \textit{Deep Learning} course at Imperial College London in Autumn 2018.
 
 
 
@@ -32,9 +33,11 @@ This work was done as part of the \textit{Deep Learning} course at Imperial Coll
 \section{Introduction}
 \label{sec:introduction}
 
-In the last few decades, machine learning techniques have achieved considerable success in many taks previously viewed as difficult for a computer. \textit{Generative models} are one specific class of algorithms that seek to produce new objects (e.g. images or music) without the need of a human. Such models are typically \textit{trained} from ``real'' data such as older images or audio fragments to infer the structures. These structures can then be imitated to create new objects that are derivations of those trained on. Various generative frameworks exist, including generative adversarial neural networks, variational autoencoders and normalising flows \cite{notes}. 
+In the last few decades, machine learning techniques considerable success in many tasks previously considered difficult for a computer. \textit{Generative models} seek to produce (representations of) new objects such as images without human assistance. They are typically \textit{trained} from ``real'' data such as existing images or audio fragments to learn their structures, which can be imitated to form new examples. Various generative frameworks exist, including but not limited to generative adversarial neural networks, variational autoencoders and normalising flows \cite{notes}. 
 
-In this report, we employ a \textit{variational autoencoder} to produce new images of clothing. The dataset and model architecture are introduced in sections XX and XX respectively. Only a very brief discussion of the model architecture is provided, but the code used is publically available at \texttt{github.com/ahilbers} under \texttt{deeplearning/assignments/week\_6}. 
+In this report, we employ a variational autoencoder to produce new images of clothing. The dataset and model architecture are introduced in sections \ref{sec:dataset} and \ref{sec:vae} respectively. Section \ref{sec:training} describes its training, while Section \ref{sec:generating} describes its use to generate new images of clothing. Section \ref{sec:discussion} discusses the results and recommends possible extensions.
+
+The code for this assignment is publically available at \texttt{github.com/ahilbers} under \texttt{deeplearning/assignments/week\_6}. 
 
 
 
@@ -42,7 +45,7 @@ In this report, we employ a \textit{variational autoencoder} to produce new imag
 \section{Dataset: Fashion MNIST}
 \label{sec:dataset}
 
-To train our model we use the \textit{Fashion MNIST} dataset\footnote{see https://github.com/zalandoresearch/fashion-mnist}. It contains 70,000 images of articles of clothing, classified into one of 10 categories. The data is split into 60,000 \textit{training} images and 10,000 \textit{testing} images. An overview of the images, by category, is shown in Figure \ref{fig:mnist_fashion}.
+We use the \textit{Fashion MNIST} dataset\footnote{https://github.com/zalandoresearch/fashion-mnist} to train our model. It contains 70,000 images of articles of clothing, classified into one of 10 categories. The data is split into 60,000 \textit{training} images and 10,000 \textit{testing} images. An overview of the images, by category, is shown in Figure \ref{fig:mnist_fashion}.
 
 \begin{figure}
   \centering
@@ -60,39 +63,22 @@ To train our model we use the \textit{Fashion MNIST} dataset\footnote{see https:
   \label{fig:mnist_fashion}
 \end{figure}
 
-The dataset is designed to be a drop-in replacement for the traditional MNIST database of handwritten digits, with image dimensions and the number of possible labels identical. However, the \textit{Fashion MNIST} database is more challenging for machine learning algorithms, since the inter-category variations are larger and the intra-category variations smaller; the visual difference between a coat and pullover may be very small when compared to two different handwritten digits.
+The \textit{Fashion MNIST} is a drop-in replacement for the traditional MNIST database of handwritten digits. However, it is more challenging for machine learning algorithms since the inter-category variations are larger and the intra-category variations smaller. 
 
 
 
 
-\section{Variational Autoencoder: setup}
+\section{Variational autoencoder: setup}
 \label{sec:vae}
 
-This section provides a brief introduction into the model architecture and how training is performed. The variational autoencoder employed is inspired by the introductions to to the method given in \cite{notes, frans, altosaar, shafkat}.
-
-The variational autoencoder employed consists of two parts: an \textit{encoder} and a \textit{deocder}. It works as follows:
+In this section we introduce the variational autoencoder's architecture and how it is trained. It is inspired by \cite{notes, frans, altosaar, shafkat}, and consists of two parts: an \textit{encoder}, mapping each image into the \textit{latent space}, and a \textit{decoder}. A high level overview is as follows:
 \begin{itemize}
-\item Represent an image by $\bm{x}^{(i)}$, the vector of its pixel brightnesses.
-\item Encode this image into a mean vector $\bm{\mu}^{(i)}$ and variance vector $\bm{\sigma}^{(i)}$ with dimension $n_z$.
- \item Sample a vector $\bm{z}^{(i)}$ from $\mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)})$ where the covariance matrix is diagonal. In reality, a \textit{reparametrisation trick} (see e.g. \cite{notes}) is performed to ensure the model is trainable, but this does not change the results of a feedforward run through the autoencoder). The density of $\bm{z}^{(i)}$ given $\bm{x}^{(i)}$ is denoted by $q_{\phi}(\bm{y}^{(i)}|\bm{x}^{(i)})$, where $\phi$ represents all parameters in the encoder). 
- \item Decode $\bm{z}^{(i)}$ back into image space using a decoder $p_{\sigma}(\bm{x}^{(i)}|\bm{z}^{(i)})$. 
+\item Represent an image by $\bm{x}^{(i)}$, the length 784 vector of its pixel brightnesses.
+\item Encode this image into a mean vector $\bm{\mu}^{(i)}$ and variance vector $\bm{\sigma}^{(i)}$ with dimension $n_z$. Typically, this dimension is much smaller than that of $\bm{x}^{(i)}$. 
+\item Sample a vector $\bm{z}^{(i)}$ from $\mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)})$ with diagional covariance matrix. In reality, a \textit{reparametrisation trick} (see e.g. \cite{notes}) is performed to ensure the model is trainable, but this does not change the results of a feedforward run through the autoencoder). The density of $\bm{z}^{(i)}$ given $\bm{x}^{(i)}$ is denoted by $q_{\phi}(\bm{z}^{(i)}|\bm{x}^{(i)})$, where $\phi$ represents all parameters in the encoder.
+\item Decode $\bm{z}^{(i)}$ back into image space using a decoder $p_{\theta}(\bm{x}^{(i)}|\bm{z}^{(i)})$, where $\theta$ represents all parameters in the decoder.
 \end{itemize}
-
-For a traditional autoencoder, the loss function will involve only the difference between $p_{\sigma}(\bm{x}^{(i)}|\bm{z}^{(i)})$ and the input $\bm{x}^{(i)}$. For a variational encoder, we want to generate new images, so this is not sufficient. The method of generating new images is by sampling new vectors $\bm{z}$ from its latent space of dimension $n_z$. If this latent space has ``meaning'' in terms of properties of the images, we will generate images. Furthemore, we hope that coordinates in the latent space are ``meaningful'' in the sense that the $\bm{z}$ vector halfway between e.g. a shoe and a trousers is some pictorial intermediate of the two.
-
-
-
-
-For this to work, the distribution of encoded (noisy) $z$ values from the training dataset should be distributed in some meaningful way. We enforce this by adding a penalisation term to the loss function that measures the deviation of the distribution of $z$ values throughout the training dataset from a standard normal distribution $\mathcal{N}(0, 1)$. For this purpose, we use the Kullback-Leibler divergence $D_{KL}$.
-
-The loss function is a follows:
-\begin{align}
-  \label{eq:loss}
-  \mathcal{L}(\bm{\theta}, \bm{\phi}, \bm{x}^{(i)}) &= \frac{1}{2} \sum_{j=1}^d \left( 1 + \log{((\sigma_j^{(i)})^2)} - (\mu_j^{(i)})^2 - (\sigma_j^{(i)})^2 \right) \\
-  &+ \frac{1}{L} \sum_{l=1}^L \log{p_{\bm{\theta}}(\bm{x}^{(i)}|\bm{z}^{(i, l)})}
-\end{align}
-
-. 
+Figure \ref{fig:neuralnet} provides a graphical overview of the encoder and decoder with all the neural network layers. The encoder and decoder are symmetric, so that the number of dimensions after e.g. the first convolutional layer in the encoder is equal to that before the last one in the decoder. The trainable parameters are $\phi$ (encoder) and $\theta$ (decoder).  
 
 \begin{figure}
   \centering
@@ -105,35 +91,65 @@ The loss function is a follows:
     
   \begin{tikzpicture}[node distance = 2cm, auto]
     % Place nodes
-    \node[draw=none,fill=none, node distance=1cm] (inp) {input image};
+    \node[draw=none,fill=none, node distance=1cm] (inp) {input image $\bm{x}^{(i)}$};
     \node[block, below of=inp, node distance=1cm] (conv_1) {convolutional layer};
     \node[block, below of=conv_1, node distance=1cm] (conv_2) {convolutional layer};
     \node[block, below of=conv_2, node distance=1cm] (dense_1) {dense layer};
-    \node[draw=none, fill=none, below of=dense_1, node distance=1cm] (inv1) {};
-    \node[draw=none, fill=none, left of=inv1, node distance=1cm] (mu) {$\mu$};
-    \node[draw=none, fill=none, right of=inv1, node distance=1cm] (sigma) {$\sigma$};
-    \node[draw=none, fill=none, below of=inv1, node distance=1cm] (z) {$z$};
-    \node[block, below of=z, node distance=1cm] (dense_2) {dense layer};
-    \node[block, below of=dense_2, node distance=1cm] (deconv_1) {deconvolutional layer};
+    \node[block, below of=dense_1, node distance=1cm] (dense_2) {dense layer};
+    \node[draw=none, fill=none, below of=dense_2, node distance=1cm] (inv1) {};
+    \node[draw=none, fill=none, left of=inv1, node distance=1cm] (mu) {$\bm{\mu}^{(i)}$};
+    \node[draw=none, fill=none, right of=inv1, node distance=1cm] (sigma) {$\bm{\sigma}^{(i)}$};
+    \node[draw=none, fill=none, below of=inv1, node distance=1cm] (z) {$\bm{z}^{(i)} \sim \mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)}) = q_\phi(\bm{z}^{(i)} | \bm{x}^{(i)})$};
+    \node[block, below of=z, node distance=1cm] (dense_3) {dense layer};
+    \node[block, below of=dense_3, node distance=1cm] (dense_4) {dense layer};
+    \node[block, below of=dense_4, node distance=1cm] (deconv_1) {deconvolutional layer};
     \node [block, below of=deconv_1, node distance=1cm] (deconv_2) {deconvolutional layer};
-    \node [draw=none, fill=none, below of=deconv_2, node distance=1cm] (out) {output image};
+    \node [draw=none, fill=none, below of=deconv_2, node distance=1cm] (out) {output image $p_{\theta}(\bm{x}^{(i)}|\bm{z}^{(i)})$};
     % Draw edges
     \path [line] (inp) -- (conv_1);
     \path [line] (conv_1) -- (conv_2);
     \path [line] (conv_2) -- (dense_1);
-    \path [line] (dense_1) -- (mu);
-    \path [line] (dense_1) -- (sigma);
+    \path [line] (dense_1) -- (dense_2);
+    \path [line] (dense_2) -- (mu);
+    \path [line] (dense_2) -- (sigma);
     \path [line] (mu) -- (z);
     \path [line] (sigma) -- (z);
-    \path [line] (z) -- (dense_2);
-    \path [line] (dense_2) -- (deconv_1);
+    \path [line] (z) -- (dense_3);
+    \path [line] (dense_3) -- (dense_4);
+    \path [line] (dense_4) -- (deconv_1);
     \path [line] (deconv_1) -- (deconv_2);
     \path [line] (deconv_2) -- (out);
+
+    \draw [decorate,decoration={brace,amplitude=10pt},xshift=0pt,yshift=0pt]
+    (-3,-4.2)--(-3,-0.8)  node [black,midway,xshift=-0.6cm,yshift=0cm] {Encoder};
+    \draw [decorate,decoration={brace,amplitude=10pt},xshift=0pt,yshift=0pt]
+    (-3,-6.4)--(-3,-4.6)  node [black,midway,xshift=-0.6cm,yshift=0cm] {``Bottleneck''};
+    \draw [decorate,decoration={brace,amplitude=10pt},xshift=0pt,yshift=0pt]
+    (-3,-10.2)--(-3,-6.8)  node [black,midway,xshift=-0.6cm,yshift=0cm] {Decoder};
   \end{tikzpicture}  
-  \caption{Variational autoencoder architecture}
+  \caption{Variational autoencoder architecture. The input image $\bm{x}^{(i)}$ (a length 784 vector) is ``encoded'' into values of $\mu$ and $\theta$, each with dimension $n_z$. A noisy value of $\bm{z}^{(i)}$ (with dimension $n_z$) is drawn from a normal distribution with these parameters (using the reparametrisation trick to ensure the model is trainable). $\bm{z}^{(i)}$ is subsequently ``decoded'' back into a vector of length 784.}
   \label{fig:neuralnet}
 \end{figure}
 
+In a traditional autoencoder, the loss function is some reconstruction error between $p_{\sigma}(\bm{x}^{(i)}|\bm{z}^{(i)})$ and the input $\bm{x}^{(i)}$. In a variational autoencoder, we want to generate new images. This is usally done by decoding specific values of $\bm{z}$ from the latent space. For this reason, we need to ensure that the latent space is ``meaningful'', in the sense that a $\bm{z}$ value halfway between a shoe and trousers is some pictorial intermediate of the two.
+
+This  is usually done by enforcing that the distribution of (noisy) $\bm{z}^{(i)}$ values throughout the training dataset is close to a unit normal. This can be achieved by adding a penalisation term to the loss function. A convenient choice is the Kullback-Leibler divergence between the distribution of $\bm{z}^{(i)}$ values and $\mathcal{N}(0, 1)$, since this term can be expressed analytically. The loss function we use to train is hence: 
+\begin{equation}
+  \mathcal{L}(\bm{\theta}, \bm{\phi}) = \sum_{i=1}^{N_i} \mathcal{L}(\bm{\theta}, \bm{\phi}, \bm{x}^{(i)})
+\end{equation}
+where the index $i$ corresponds to the the (training) images and
+\begin{multline}
+  \label{eq:loss}
+  \mathcal{L}(\bm{\theta}, \bm{\phi}, \bm{x}^{(i)}) = \frac{1}{2} \sum_{j=1}^{n_z} \left( 1 + \log{((\sigma_j^{(i)})^2)} - (\mu_j^{(i)})^2 - (\sigma_j^{(i)})^2 \right) \\
+  + \frac{1}{L} \sum_{l=1}^L \log{p_{\bm{\theta}}(\bm{x}^{(i)}|\bm{z}^{(i, l)})}
+\end{multline}
+with $\mu_j^{(i)}$ the $j$th component of $\bm{\mu}^{(i)}$, $\sigma_j^{(i)}$ defined the same way and $\bm{z}^{(i, l)}$ one of $l$ samples randomly drawn from $\mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)})$. The first term is an analytic expression for the Kullback-Leibler divergence of the $\bm{z}$ space encoded by $q_\phi$ and the second measures the reconstruction error. A traditional autoencoder would only include the second term. Note that the encoder parameters $\phi$ are implicitly present in the the second term through $\bm{z}^{(i, l)}$. 
+
+
+
+
+\section{Training}
+\label{sec:training}
 
 \begin{figure}
   \centering
@@ -144,52 +160,81 @@ The loss function is a follows:
 
 \begin{figure}
   \centering
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{0_epochs.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{1_epochs.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{2_epochs.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{3_epochs.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{4_epochs.png}
-  \caption{Autoencoder outputs for the first 10 images of the dataset after $n$ full runs through training dataset, from $n=0$ (top) to $n=4$ (bottom).}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{0_epochs.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{1_epochs.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{2_epochs.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{3_epochs.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{4_epochs.png}
+  \includegraphics[scale=0.6, trim=82 0 0 0, clip]{benchmark.pdf}
+  \caption{Autoencoder outputs for the first 10 images of the dataset after $n$ full runs through training dataset, from $n=0$ (top) to $n=4$ (bottom). The last row shows the corresponding original images (from the training dataset).}
   \label{fig:training_images}
 \end{figure}
 
+To train the model, we use Tensorflow's inbuilt \textit{Adam} optimiser, along with the training/testing split provided by the dataset. We train in batches of size 100, up to five full runs through the training dataset (epochs). The training and testing errors are shown in Figure \ref{fig:training_costs}, with the expected results. Since the value of the cost/loss function is not easily intepretable, we also plot 10 reconstructions as a function of the number of epochs of training. The original images are shown in the last row as comparison. Note that the autoencoder does well in reconstructing the overall shape of the images, but blurs them considerably and, for this reason, fails to capture more detailed features such as the designs on t-shirts. This is often seen when minimising a loss function without extra adjustments, and is a problem common in (variational) autoencoders \cite{lamb, frans}. 
+
+
+
+
+\section{Generating images}
+\label{sec:generating}
+
+The variational autoencoder was chosen for its potential as a \textit{generative} model, so we want to use it not just to recreate previously created images, but also to create new ones. The idea is that the latent space in which $\bm{z}$ lives has some meaning so that we can create images with certain features by decoding suitable $\bm{z}$ values. In this section, we explore to what extent we have managed this.
+
+
+\subsection{Interpolating}
+\label{sec:generating:interpolating}
+
 \begin{figure}
   \centering
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bag2sneaker.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{jumper2bag.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{trouser2jumper.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{tshirt2sneaker.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{bag2sneaker.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{jumper2bag.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{trouser2jumper.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{tshirt2sneaker.png}
   \caption{Interpolations in latent space between selected images.}
   \label{fig:interpolations}
 \end{figure}
 
-\begin{figure}
-  \centering
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bag2bag_extrahandle.png}
-  \caption{Interpolations in latent space between a bag without and with a handle.}
-  \label{fig:interpolation_handle}
-\end{figure}
+We start by interpolating images in latent space. Interpolating images in the original 784-dimensional image is an opacity weighted superposition of pixel brighntesses and does not provide images that resemble real items. The hope is that interpolating in the latent space returns a continous mapping from one image to another, where each intermediate image looks like an item.
+
+Interpolations in latent space between various images is shown in Figure \ref{fig:interpolations}. The results are roughly what was expected: an image ``morphs'' continuously into another one. Interestingly, there are sometimes intermediate steps where the interpolation ``passes through'' another item. For example, in the last row of Figure \ref{fig:interpolations}, a pullover becomes a bag and only then a sneaker.
+
+
+\subsection{Adding custom features}
+\label{sec:generating:features}
 
 \begin{figure}
   \centering
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bags_default.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{bags_extrahandle.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{shoes_default.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{shoes_extrahandle.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{sandals_default.png}
-  \includegraphics[scale=0.6, trim=90 0 70 0, clip]{sandals_extrahandle.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{bags_default.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{bags_extrahandle.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{shoes_default.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{shoes_extrahandle.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{sandals_default.png}
+  \includegraphics[scale=0.6, trim=28 0 10 0, clip]{sandals_extrahandle.png}
   \caption{``Adding'' a handle to various images in latent space. The unmodified pictures are shown above those with an ``added'' handle.}
   \label{fig:extrahandles}
 \end{figure}
 
+Interpolations provide only a limited form of generative power; we would also like to create images with custom features. The latent space may help us with that. Suppose, for example, we want to generate an image of a sneaker with a handle added to it. We can do this via
+\begin{align}
+  \label{eq:sneaker_handle}
+  \text{sneaker with handle} &= \text{sneaker} + \text{handle} \\
+  &= \text{sneaker} + (\text{bag with handle} - \text{bag without handle})
+\end{align}
+where all the additions occur in latent space.
+
+We use this approach to ``add'' handles to various articles of clothing. The results are displayed in Figure \ref{fig:extrahandles}. The first two rows are bags, with the original (autoencoded) images above and those with an added handle below. The approach does not work perfectly: it tends to add features that somewhat resemble a handle but would probably not be recognised as such by a human. For example, for the first bag (left top image of Figure \ref{fig:extrahandles}), the bag gets a bulge where a handle would be, but there is no ``loop''. For bags already containing a handle, it tends to be come slightly thicker. The only bag for which a legitimate handle is added is the 9th (top row, second from right). However, it and the image below it are the images the difference was taken over to isolate the handle in the first place. 
+
+For sneakers (third and fourth row), the resultant images do appear to have a handle, but the sneaker shape has been destroyed, so that we are left with blob-like shapes instead of shoes. For sandals, it is very difficult to interpret the bottom row as images. However, interestingly, the last image (right bottom) looks like a coat, evidencing the complex structure in which $\bm{z}$ values live.
 
 
 
 
+\section{Discussion}
+\label{sec:discussion}
 
+Most interesting behavior is related to the structure of the latent space and this is the most obvious area of improvement. If we can train a model to make latent space ``meaningful'', we may have a powerful generative tool. However, the success of this may require more careful tuning than we have done here. For example, the Kullback-Leibler divergence as a penalisation term can be viewed as somewhat simplistic, and a more sophisticated loss function may give us more control over the distribution of $\bm{z}$ values. We could also study the latent space in more detail in the hopes of unlocking an understanding of its structure.
 
-	
-
+Another drawback is the considerable blur on (re)constructed images. This blur remains even when the ``obvious'' improvements of more hidden layers, nodes or filters are applied. Some papers (e.g. \cite{lamb}) recommend adjustments to remove some of this blur.
 
 
 

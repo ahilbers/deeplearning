@@ -6,6 +6,8 @@
 \usepackage{bm}
 \usepackage{tikz}
 \usetikzlibrary{shapes, arrows}
+\usetikzlibrary{calc,arrows,decorations.pathmorphing,backgrounds,fit,positioning,shapes.symbols,chains}
+\usetikzlibrary{decorations.pathreplacing}
 \graphicspath{ {../figs/} }
 
 
@@ -16,15 +18,13 @@
 
 \begin{document}
 
-\message{ !name(Report.tex) !offset(57) }
-$q_{\phi}(\bm{y}^{(i)}|\bm{x}^{(i)})$
-\end{itemize}
+\message{ !name(Report.tex) !offset(127) }
+$\mathcal{N}(\bm{\mu}^{(i)}, \bm{\sigma}^{(i)})$
+
+. 
 
 
-This section introduces the setup of the model and how it is trained. For sake of brevity, only a concise overview is provided. The setup of the model is shown in Figure \ref{fig:neuralnet}. Overall, a feedforward run of the variational autoencoder works as follows, as inspired by \cite{notes, frans, altosaar, shafkat}: 
-\begin{itemize}
-\item The raw input is an image encoded as a length 784 vector with the pixel brightnesses. 
-\item This image is reshaped and fed through a convolutional neural network consisting of both convolutional and dense layers. This gives, for each image, two vectors: a mean
-\message{ !name(Report.tex) !offset(167) }
+
+\message{ !name(Report.tex) !offset(222) }
 
 \end{document}          
